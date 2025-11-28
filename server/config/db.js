@@ -6,7 +6,10 @@ const db = mysql.createConnection({
     host: process.env.DB_HOST,     // 이제 코드에 비밀 정보가 없습니다!
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
+    database: process.env.DB_NAME,
+      // TiDB Serverless: TLS 필수
+  ssl: { minVersion: 'TLSv1.2' } // Node 기본 신뢰 스토어 사용
+  // 필요 시 servername: process.env.DB_HOST 를 추가해 SNI 명시 가능
 });
 
 db.connect((err) => {
