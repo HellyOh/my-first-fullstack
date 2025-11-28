@@ -1,128 +1,145 @@
 // client/src/App.jsx
 import { useState, useEffect } from 'react';
-const SERVER_URL = import.meta.env.VITE_API_URL; // 주소 가져오기
+
+// 환경 변수에서 서버 주소 가져오기 (배포 환경 고려)
+const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 function App() {
   const [users, setUsers] = useState([]);
   const [name, setName] = useState("");
   const [job, setJob] = useState("");
-  
-  // [★핵심] 지금 수정 중인지 아닌지 판단하는 상태 (null이면 입력모드, 숫자가 있으면 수정모드)
-  const [editingId, setEditingId] = useState(null); 
+  const [editingId, setEditingId] = useState(null);
 
   const fetchUsers = () => {
     fetch(`${SERVER_URL}/api/users`)
       .then(response => response.json())
       .then(result => setUsers(result))
-      .catch(error => console.error("에러:", error));
+      .catch(error => console.error("Error:", error));
   };
 
   useEffect(() => { fetchUsers(); }, []);
 
-  // [★핵심] 폼 제출 하나로 "추가"와 "수정"을 모두 처리
   const handleSubmit = (e) => {
     e.preventDefault();
-    if(!name || !job) return alert("값을 입력하세요!");
+    if(!name || !job) return alert("이름과 직업을 입력해주세요.");
 
-    // 1. 수정 모드일 때 (PUT 요청)
-    if (editingId) {
-      fetch(`${SERVER_URL}/api/users/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, job }),
-      })
-      .then(() => {
-        alert("수정 완료!");
-        endEditMode(); // 수정 모드 종료
-        fetchUsers();
-      });
-    } 
-    // 2. 입력 모드일 때 (POST 요청)
-    else {
-      fetch(`${SERVER_URL}/api/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, job }),
-      })
-      .then(() => {
+    const url = editingId ? `${SERVER_URL}/api/users/${editingId}` : `${SERVER_URL}/api/users`;
+    const method = editingId ? 'PUT' : 'POST';
+
+    fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, job }),
+    })
+    .then(() => {
+        if(editingId) setEditingId(null);
         setName("");
         setJob("");
-        fetchUsers();
-      });
-    }
+        fetchUsers(); 
+    });
   };
 
-  // 수정 버튼 눌렀을 때: 입력창에 값 채워넣기
   const startEdit = (user) => {
-    setEditingId(user.id); // "지금 이 ID를 수정 중이야"라고 표시
-    setName(user.name);    // 입력창에 기존 이름 넣기
-    setJob(user.job);      // 입력창에 기존 직업 넣기
-  };
-
-  // 수정 취소 혹은 완료 시 초기화
-  const endEditMode = () => {
-    setEditingId(null);
-    setName("");
-    setJob("");
+    setEditingId(user.id);
+    setName(user.name);
+    setJob(user.job);
   };
 
   const deleteUser = (id) => {
-    if(window.confirm("삭제하시겠습니까?")) {
+    if(window.confirm("정말 삭제하시겠습니까?")) {
       fetch(`${SERVER_URL}/api/users/${id}`, { method: 'DELETE' })
       .then(() => fetchUsers());
     }
   };
 
   return (
-    <div style={{ padding: "50px", textAlign: "center" }}>
-      <h1>🚀 인재 영입 시스템</h1>
-      
-      {/* 폼 (onSubmit이 handleSubmit으로 연결됨) */}
-      <form onSubmit={handleSubmit} style={{ marginBottom: "30px", padding: "20px", background: "#f9f9f9", borderRadius: "10px", display: "inline-block" }}>
+    <div className="min-h-screen bg-gray-100 py-10 px-4">
+      <div className="max-w-4xl mx-auto">
         
-        {/* 수정 모드일 때만 보이는 안내 문구 */}
-        {editingId && <p style={{color: "blue", fontWeight: "bold"}}>✏️ 정보를 수정하고 있습니다</p>}
+        {/* 헤더 섹션 */}
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">🚀 Team Management</h1>
+          <p className="text-gray-500">전 세계 어디서나 우리 팀을 관리하세요</p>
+        </div>
 
-        <input 
-          placeholder="이름" value={name} onChange={(e) => setName(e.target.value)}
-          style={{ padding: "10px", marginRight: "10px" }}
-        />
-        <input 
-          placeholder="직업" value={job} onChange={(e) => setJob(e.target.value)}
-          style={{ padding: "10px", marginRight: "10px" }}
-        />
-        
-        {/* 버튼 글자가 상황에 따라 바뀜 */}
-        <button type="submit" style={{ padding: "10px 20px", background: editingId ? "blue" : "green", color: "white", border: "none" }}>
-          {editingId ? "수정 완료" : "추가하기"}
-        </button>
-
-        {/* 수정 취소 버튼 */}
-        {editingId && (
-          <button type="button" onClick={endEditMode} style={{ marginLeft: "10px", padding: "10px", background: "gray", color: "white", border: "none" }}>
-            취소
-          </button>
-        )}
-      </form>
-
-      <div style={{ display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap" }}>
-        {users.map((user) => (
-          <div key={user.id} style={{ border: "1px solid #ddd", padding: "20px", borderRadius: "10px", minWidth: "150px", position: "relative" }}>
-            <h3 style={{ margin: "0 0 10px 0" }}>{user.name}</h3>
-            <p>{user.job}</p>
+        {/* 입력 폼 카드 */}
+        <div className="bg-white rounded-xl shadow-md p-6 mb-8 max-w-lg mx-auto">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <h2 className="text-lg font-semibold text-gray-700 border-b pb-2">
+              {editingId ? "✏️ 정보 수정하기" : "✨ 새 멤버 등록"}
+            </h2>
             
-            <div style={{ marginTop: "10px", display: "flex", gap: "5px", justifyContent: "center" }}>
-              {/* [★추가] 수정 버튼 */}
-              <button onClick={() => startEdit(user)} style={{ background: "orange", color: "white", border: "none", padding: "5px 10px", cursor: "pointer" }}>
-                수정
-              </button>
-              {/* 삭제 버튼 */}
-              <button onClick={() => deleteUser(user.id)} style={{ background: "red", color: "white", border: "none", padding: "5px 10px", cursor: "pointer" }}>
-                삭제
-              </button>
+            <div className="flex gap-2">
+              <input 
+                className="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                placeholder="이름 (Name)" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <input 
+                className="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                placeholder="직업 (Job)" 
+                value={job}
+                onChange={(e) => setJob(e.target.value)}
+              />
             </div>
-          </div>
-        ))}
+
+            <div className="flex gap-2">
+              <button 
+                type="submit" 
+                className={`flex-1 text-white font-bold py-3 rounded-lg transition duration-200 
+                  ${editingId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+              >
+                {editingId ? "수정 완료" : "등록하기"}
+              </button>
+              
+              {editingId && (
+                <button 
+                  type="button" 
+                  onClick={() => { setEditingId(null); setName(""); setJob(""); }}
+                  className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg transition"
+                >
+                  취소
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* 리스트 카드 그리드 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {users.map((user) => (
+            <div key={user.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition duration-300 transform hover:-translate-y-1">
+              <div className="h-2 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{user.name}</h3>
+                    <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-1">
+                      {user.job}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                  <button 
+                    onClick={() => startEdit(user)}
+                    className="flex-1 bg-yellow-50 text-yellow-600 py-2 rounded-lg text-sm font-semibold hover:bg-yellow-100 transition"
+                  >
+                    수정
+                  </button>
+                  <button 
+                    onClick={() => deleteUser(user.id)}
+                    className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg text-sm font-semibold hover:bg-red-100 transition"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
   );
